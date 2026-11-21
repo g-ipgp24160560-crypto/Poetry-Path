@@ -1,0 +1,1350 @@
+import React, { useState, useEffect, useRef } from 'react';
+
+// --- DATA ---
+const TOPICS = [
+  { id: 'HANDS', icon: '🖐️' },
+  { id: 'FEET', icon: '🦶' },
+  { id: 'EYES', icon: '👀' },
+  { id: 'EARS', icon: '👂' },
+  { id: 'MOUTH', icon: '👄' }
+];
+
+const VOCABULARY = {
+  HANDS: { verbs: ['Clap', 'Tap', 'Wave', 'Draw', 'Catch', 'Hold'], adjectives: ['Helpful', 'Gentle', 'Busy', 'Quick'], rhymes: [{word1: 'Clap', word2: 'Tap'}, {word1: 'Play', word2: 'Day'}] },
+  FEET: { verbs: ['Walk', 'Hop', 'Skip', 'Dance', 'Tiptoe', 'Stomp'], adjectives: ['Nimble', 'Happy', 'Steady', 'Quick'], rhymes: [{word1: 'Hop', word2: 'Stop'}, {word1: 'Slow', word2: 'Go'}] },
+  EYES: { verbs: ['Look', 'Watch', 'Blink', 'Gaze', 'See', 'Spot'], adjectives: ['Bright', 'Curious', 'Sleepy', 'Keen'], rhymes: [{word1: 'Bright', word2: 'Light'}, {word1: 'See', word2: 'Be'}] },
+  EARS: { verbs: ['Hear', 'Listen', 'Notice', 'Detect'], adjectives: ['Tiny', 'Sensitive', 'Curious', 'Sharp'], rhymes: [{word1: 'Hear', word2: 'Cheer'}, {word1: 'Song', word2: 'Long'}] },
+  MOUTH: { verbs: ['Smile', 'Speak', 'Sing', 'Whisper', 'Laugh', 'Taste'], adjectives: ['Cheerful', 'Kind', 'Loud', 'Gentle'], rhymes: [{word1: 'Say', word2: 'Day'}, {word1: 'Sing', word2: 'Thing'}] }
+};
+
+const AVATARS = [
+  { id: 'elara', name: 'Princess Elara', role: 'The Royal Poet', icon: '👸', color: 'from-pink-200 to-rose-100', borderColor: 'border-pink-400', textColor: 'text-pink-900', desc: 'Creative, elegant and imaginative.' },
+  { id: 'rowan', name: 'Knight Rowan', role: 'The Brave Wordkeeper', icon: '🛡️', color: 'from-teal-200 to-emerald-100', borderColor: 'border-teal-500', textColor: 'text-teal-950', desc: 'Brave, determined and adventurous.' },
+  { id: 'ember', name: 'Ember', role: 'The Rhyming Dragon', icon: '🐉', color: 'from-purple-200 to-fuchsia-100', borderColor: 'border-purple-400', textColor: 'text-purple-950', desc: 'Playful, curious and imaginative.' },
+  { id: 'wisteria', name: 'Witch Wisteria', role: 'Spellbinding Storyteller', icon: '🧙‍♀️', color: 'from-indigo-200 to-blue-100', borderColor: 'border-indigo-400', textColor: 'text-indigo-950', desc: 'Clever, creative and mysterious.' }
+];
+
+const PATHWAYS = [
+  { id: 'GUIDED', name: 'GUIDED POET', level: 'BEGINNER', desc: 'I would like some help creating my poem!', features: ['Picture vocabulary', 'Prepared rhyming pairs', 'Fill-in-the-blank lines'], color: 'bg-emerald-100', border: 'border-emerald-500', text: 'text-emerald-950', icon: '🌱' },
+  { id: 'INDEPENDENT', name: 'INDEPENDENT POET', level: 'INTERMEDIATE', desc: 'I can create my own lines with a little guidance!', features: ['Writing prompts', 'Suggested rhyming words', 'Independent typing'], color: 'bg-sky-100', border: 'border-sky-500', text: 'text-sky-950', icon: '🌿' },
+  { id: 'CREATIVE', name: 'CREATIVE POET', level: 'ADVANCED', desc: 'I am ready to create my own unique poem!', features: ['Open-ended editor', 'Creative challenges', 'Free arrangement'], color: 'bg-violet-100', border: 'border-violet-500', text: 'text-violet-950', icon: '🌳' }
+];
+
+const INITIAL_STATE = {
+  screen: 'START',
+  returnScreen: 'START',
+  avatarId: null,
+  pathwayId: null,
+  topicId: null,
+  unlockedLocs: ['HQ'],
+  completedLocs: [],
+  toolkit: { verbs: [], adjectives: [], rhymes: [] },
+  treasures: { gem: false, star: false, crystal: false, quill: false },
+  poemData: { title: 'My Magical Poem', lines: ['', '', '', ''], guidedSelections: {} }
+};
+
+const DEFAULT_SETTINGS = {
+  fontStyle: 'serif',
+  fontSize: 'medium',
+  musicOn: false,
+  volume: 0.25
+};
+
+const getEmojiForWord = (word) => {
+  const map = {
+    Clap: '👏', Tap: '👇', Wave: '👋', Draw: '🖍️', Catch: '⚾', Hold: '🤝',
+    Walk: '🚶', Hop: '🐇', Skip: '🏃', Dance: '💃', Tiptoe: '🩰', Stomp: '🥾',
+    Look: '👀', Watch: '📺', Blink: '👁️', Gaze: '🌌', See: '🔍', Spot: '🎯',
+    Hear: '👂', Listen: '🎧', Notice: '❗', Detect: '🕵️',
+    Smile: '😊', Speak: '🗣️', Sing: '🎤', Whisper: '🤫', Laugh: '😂', Taste: '👅',
+    Helpful: '🤝', Gentle: '🕊️', Busy: '🐝', Quick: '⚡', Nimble: '🤸', Happy: '😄',
+    Steady: '⚖️', Bright: '☀️', Curious: '🤔', Sleepy: '😴', Keen: '🦅',
+    Tiny: '🐜', Sensitive: '🎛️', Sharp: '🔪', Cheerful: '🥳', Kind: '💖', Loud: '📢'
+  };
+  return map[word] || '✨';
+};
+
+const GUIDED_POETRY_DATA = {
+  HANDS: [
+    { template: "My hands can {blank}.", options: [{text: "clap and tap", correct: true}, {text: "walk and jump", error: "Hands don't usually walk and jump!"}] },
+    { template: "My fingers are {blank}.", options: [{text: "gentle and helpful", correct: true}, {text: "loud and shiny", error: "Fingers aren't usually loud and shiny."}] },
+    { template: "They help me {blank}.", options: [{text: "draw and play", correct: true}, {text: "stomp and kick", error: "We use our feet to stomp and kick."}] },
+    { template: "And create something every {blank}.", options: [{text: "day", correct: true}, {text: "night", error: "Try to find the word that rhymes with 'play'!"}] }
+  ],
+  FEET: [
+    { template: "My feet can {blank}.", options: [{text: "hop and stop", correct: true}, {text: "wave and clap", error: "We don't usually wave with our feet!"}] },
+    { template: "My steps are {blank}.", options: [{text: "nimble and steady", correct: true}, {text: "bright and sleepy", error: "Steps aren't usually sleepy."}] },
+    { template: "They help me walk {blank}.", options: [{text: "fast and slow", correct: true}, {text: "up and down", error: "Let's find words that describe speed."}] },
+    { template: "They are always on the {blank}.", options: [{text: "go", correct: true}, {text: "move", error: "Try to find the word that rhymes with 'slow'!"}] }
+  ],
+  EYES: [
+    { template: "My eyes can {blank}.", options: [{text: "look and see", correct: true}, {text: "listen and hear", error: "We use our ears to listen."}] },
+    { template: "They are very {blank}.", options: [{text: "bright and keen", correct: true}, {text: "tiny and loud", error: "Eyes aren't usually loud."}] },
+    { template: "They shine with so much {blank}.", options: [{text: "light", correct: true}, {text: "dark", error: "Eyes need light to see well."}] },
+    { template: "I wonder what they will {blank}.", options: [{text: "be", correct: true}, {text: "do", error: "Try to find the word that rhymes with 'see'!"}] }
+  ],
+  EARS: [
+    { template: "My ears can {blank}.", options: [{text: "listen and hear", correct: true}, {text: "blink and gaze", error: "We blink with our eyes."}] },
+    { template: "They are very {blank}.", options: [{text: "sensitive and sharp", correct: true}, {text: "steady and slow", error: "Ears are sharp to catch sounds."}] },
+    { template: "They love to hear a {blank}.", options: [{text: "happy song", correct: true}, {text: "loud noise", error: "A happy song is much nicer to hear!"}] },
+    { template: "And listen all day {blank}.", options: [{text: "long", correct: true}, {text: "short", error: "Try to find the word that rhymes with 'song'!"}] }
+  ],
+  MOUTH: [
+    { template: "My mouth can {blank}.", options: [{text: "smile and speak", correct: true}, {text: "walk and run", error: "Mouths don't walk!"}] },
+    { template: "My words are {blank}.", options: [{text: "cheerful and kind", correct: true}, {text: "quick and sleepy", error: "Let's choose descriptive words for words."}] },
+    { template: "I have nice things to {blank}.", options: [{text: "say", correct: true}, {text: "shout", error: "Saying nice things is better than shouting."}] },
+    { template: "Every single {blank}.", options: [{text: "day", correct: true}, {text: "week", error: "Try to find the word that rhymes with 'say'!"}] }
+  ]
+};
+
+// --- HELPER FUNCTIONS FOR SETTINGS ---
+const getDynamicTextClass = (baseSize, settings) => {
+  const { fontSize } = settings;
+  if (baseSize === 'sm') return fontSize === 'large' ? 'text-base' : fontSize === 'small' ? 'text-xs' : 'text-sm';
+  if (baseSize === 'base') return fontSize === 'large' ? 'text-xl' : fontSize === 'small' ? 'text-sm' : 'text-base';
+  if (baseSize === 'lg') return fontSize === 'large' ? 'text-2xl' : fontSize === 'small' ? 'text-base' : 'text-lg';
+  if (baseSize === 'xl') return fontSize === 'large' ? 'text-3xl' : fontSize === 'small' ? 'text-lg' : 'text-xl';
+  return 'text-base';
+};
+
+// --- COMPONENTS ---
+
+const TopBar = ({ state, updateState, setShowSettings }) => {
+  return (
+    <div className="bg-emerald-950 text-amber-50 p-3 flex justify-between items-center sticky top-0 z-40 shadow-[0_4px_15px_rgba(0,0,0,0.3)] border-b-4 border-amber-500">
+      <div className="flex items-center gap-3 ml-2">
+        <span className="text-3xl drop-shadow-md">🏰</span>
+        <h1 className="text-2xl font-extrabold hidden sm:block tracking-widest font-serif drop-shadow-md text-amber-300">POETRY PATH</h1>
+      </div>
+      <div className="flex gap-4 items-center mr-2">
+        {state.screen !== 'START' && state.screen !== 'MAP' && state.screen !== 'GUIDEBOOK' && (
+          <button 
+            onClick={() => updateState({ screen: 'MAP' })}
+            className="bg-gradient-to-b from-amber-400 to-amber-600 hover:from-amber-300 hover:to-amber-500 text-amber-950 font-extrabold py-2 px-6 rounded-full text-sm transition-all hover:scale-105 shadow-[0_4px_0_#92400e] active:translate-y-1 active:shadow-none border-2 border-amber-200"
+          >
+            Adventure Map
+          </button>
+        )}
+        {state.screen !== 'START' && state.screen !== 'GUIDEBOOK' && (
+          <button 
+            onClick={() => updateState({ screen: 'GUIDEBOOK', returnScreen: state.screen })}
+            className="bg-indigo-900/50 hover:bg-indigo-800 text-indigo-100 font-bold py-2 px-5 rounded-full text-sm transition-transform hover:scale-105 shadow-md border-2 border-indigo-300 flex items-center gap-2"
+          >
+            <span>📖</span> Guidebook
+          </button>
+        )}
+        <button 
+          onClick={() => setShowSettings(true)}
+          className="bg-emerald-800 hover:bg-emerald-700 text-amber-100 p-2 rounded-full shadow-md border-2 border-emerald-600 transition-transform hover:rotate-90 flex items-center justify-center w-10 h-10"
+          title="Settings"
+        >
+          ⚙️
+        </button>
+      </div>
+    </div>
+  );
+};
+
+const ProgressTracker = ({ state, settings }) => {
+  const [expanded, setExpanded] = useState(false);
+
+  if (!['HQ', 'MAP', 'VERB_FOREST', 'ADJ_GARDEN', 'RHYME_RIVER', 'STUDIO', 'FESTIVAL'].includes(state.screen)) {
+    return null;
+  }
+
+  const stages = [
+    { id: 'HQ', name: 'Mission Headquarters', icon: '🏰' },
+    { id: 'VERB_FOREST', name: 'Action Verb Forest', icon: '🌲' },
+    { id: 'ADJ_GARDEN', name: 'Adjective Garden', icon: '🌸' },
+    { id: 'RHYME_RIVER', name: 'Rhyme River', icon: '🌊' },
+    { id: 'STUDIO', name: 'Poetry Studio', icon: '✍️' },
+    { id: 'FESTIVAL', name: 'Poets\' Festival', icon: '🎪' }
+  ];
+
+  return (
+    <div className={`parchment border-r-4 border-amber-700 shadow-[10px_0_20px_rgba(0,0,0,0.15)] z-20 flex-shrink-0 transition-all duration-300 ${expanded ? 'h-auto' : 'h-16 md:min-h-full'} md:w-72 flex flex-col`}>
+      <div className="md:hidden flex justify-between items-center p-4 cursor-pointer bg-emerald-900 text-amber-50 border-b-2 border-amber-500" onClick={() => setExpanded(!expanded)}>
+        <span className={`font-bold font-serif ${getDynamicTextClass('base', settings)}`}>Your Adventure</span>
+        <span>{expanded ? '▲' : '▼'}</span>
+      </div>
+
+      <div className={`${expanded ? 'flex' : 'hidden'} md:flex flex-col p-6 overflow-y-auto sticky top-0`}>
+         <h3 className={`font-extrabold text-amber-900 mb-6 hidden md:block uppercase tracking-widest border-b-2 border-amber-300 pb-2 font-serif text-center ${getDynamicTextClass('base', settings)}`}>
+           Your Adventure
+         </h3>
+         
+         <div className="space-y-4">
+           {stages.map((stage) => {
+             const isCompleted = state.completedLocs.includes(stage.id);
+             const isCurrent = state.screen === stage.id || (state.screen === 'MAP' && state.unlockedLocs.includes(stage.id) && !isCompleted && state.unlockedLocs[state.unlockedLocs.length - 1] === stage.id);
+             
+             return (
+               <div key={stage.id} className={`flex items-center gap-3 p-3 rounded-2xl border-2 transition-colors ${isCompleted ? 'bg-emerald-100/50 border-emerald-400 shadow-sm' : isCurrent ? 'bg-amber-100/80 border-amber-500 shadow-md ring-2 ring-amber-200' : 'bg-white/30 border-gray-300 opacity-60'}`}>
+                 <div className={`w-10 h-10 flex items-center justify-center rounded-full text-base font-bold shadow-inner border-2 ${isCompleted ? 'bg-emerald-600 border-emerald-800 text-white' : isCurrent ? 'bg-amber-400 border-amber-600 text-amber-950' : 'bg-gray-200 border-gray-400 text-gray-500'}`}>
+                    {isCompleted ? '✓' : stage.icon}
+                 </div>
+                 <div className="flex-1">
+                    <p className={`font-bold font-serif ${getDynamicTextClass('sm', settings)} ${isCompleted ? 'text-emerald-900' : isCurrent ? 'text-amber-950' : 'text-gray-600'}`}>{stage.name}</p>
+                 </div>
+               </div>
+             )
+           })}
+         </div>
+
+         {state.screen === 'STUDIO' && (
+            <div className="mt-8 pt-6 border-t-2 border-amber-300 hidden md:block">
+                <h4 className={`font-extrabold text-amber-900 mb-4 uppercase tracking-wider font-serif text-center ${getDynamicTextClass('sm', settings)}`}>Writing Stages</h4>
+                <ul className={`space-y-4 text-emerald-950 font-bold ${getDynamicTextClass('sm', settings)}`}>
+                    <li className="flex items-center gap-3"><span className="text-xl bg-white p-2 rounded-full border-2 border-amber-200 shadow-sm">📝</span> Plan Your Poem</li>
+                    <li className="flex items-center gap-3"><span className="text-xl bg-white p-2 rounded-full border-2 border-amber-200 shadow-sm">🏗️</span> Build Your Lines</li>
+                    <li className="flex items-center gap-3"><span className="text-xl bg-white p-2 rounded-full border-2 border-amber-200 shadow-sm">🔍</span> Review Your Poem</li>
+                    <li className="flex items-center gap-3"><span className="text-xl bg-white p-2 rounded-full border-2 border-amber-200 shadow-sm">✨</span> Complete Your Poem</li>
+                </ul>
+            </div>
+         )}
+      </div>
+    </div>
+  )
+};
+
+const SettingsModal = ({ show, onClose, settings, setSettings }) => {
+  if (!show) return null;
+
+  const updateSetting = (key, value) => {
+    setSettings(prev => ({ ...prev, [key]: value }));
+  };
+
+  return (
+    <div className="fixed inset-0 bg-emerald-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+      <div className="parchment rounded-[2rem] max-w-lg w-full p-8 shadow-2xl border-4 border-amber-600 relative overflow-hidden">
+         {/* Decorative elements */}
+         <div className="absolute top-0 right-0 text-6xl opacity-20 -mt-2 -mr-2 pointer-events-none">🌸</div>
+         <div className="absolute bottom-0 left-0 text-6xl opacity-20 -mb-2 -ml-2 pointer-events-none">🌿</div>
+         
+         <div className="flex justify-between items-center mb-6 border-b-2 border-amber-300 pb-4 relative z-10">
+           <h2 className="text-3xl font-extrabold text-amber-950 font-serif flex items-center gap-3">
+             ⚙️ Royal Settings
+           </h2>
+           <button onClick={onClose} className="bg-amber-100 text-rose-800 hover:bg-rose-200 rounded-full w-10 h-10 flex items-center justify-center font-bold text-xl transition-colors shadow-sm border-2 border-rose-300">
+             ✖
+           </button>
+         </div>
+
+         <div className="space-y-6 relative z-10">
+            {/* Font Style */}
+            <div>
+              <h3 className="font-bold text-emerald-900 mb-3 uppercase tracking-wide text-sm font-serif">Word Font Style</h3>
+              <div className="flex gap-2">
+                <button onClick={() => updateSetting('fontStyle', 'rounded')} className={`flex-1 py-3 px-2 rounded-xl border-2 font-bold transition-colors shadow-sm ${settings.fontStyle === 'rounded' ? 'bg-emerald-700 border-emerald-900 text-amber-50' : 'bg-white border-amber-300 text-emerald-900 hover:bg-amber-50'}`} style={{fontFamily: '"Nunito", "Quicksand", "Comic Sans MS", sans-serif'}}>Rounded</button>
+                <button onClick={() => updateSetting('fontStyle', 'sans')} className={`flex-1 py-3 px-2 rounded-xl border-2 font-bold transition-colors shadow-sm font-sans ${settings.fontStyle === 'sans' ? 'bg-emerald-700 border-emerald-900 text-amber-50' : 'bg-white border-amber-300 text-emerald-900 hover:bg-amber-50'}`}>Clean Sans</button>
+                <button onClick={() => updateSetting('fontStyle', 'serif')} className={`flex-1 py-3 px-2 rounded-xl border-2 font-bold transition-colors shadow-sm font-serif ${settings.fontStyle === 'serif' ? 'bg-emerald-700 border-emerald-900 text-amber-50' : 'bg-white border-amber-300 text-emerald-900 hover:bg-amber-50'}`}>Storybook</button>
+              </div>
+            </div>
+
+            {/* Text Size */}
+            <div>
+              <h3 className="font-bold text-emerald-900 mb-3 uppercase tracking-wide text-sm font-serif">Text Size</h3>
+              <div className="flex gap-2">
+                <button onClick={() => updateSetting('fontSize', 'small')} className={`flex-1 py-3 rounded-xl border-2 font-bold transition-colors shadow-sm text-sm ${settings.fontSize === 'small' ? 'bg-amber-500 border-amber-700 text-amber-950' : 'bg-white border-amber-300 text-amber-900 hover:bg-amber-50'}`}>Small</button>
+                <button onClick={() => updateSetting('fontSize', 'medium')} className={`flex-1 py-3 rounded-xl border-2 font-bold transition-colors shadow-sm text-base ${settings.fontSize === 'medium' ? 'bg-amber-500 border-amber-700 text-amber-950' : 'bg-white border-amber-300 text-amber-900 hover:bg-amber-50'}`}>Medium</button>
+                <button onClick={() => updateSetting('fontSize', 'large')} className={`flex-1 py-3 rounded-xl border-2 font-bold transition-colors shadow-sm text-lg ${settings.fontSize === 'large' ? 'bg-amber-500 border-amber-700 text-amber-950' : 'bg-white border-amber-300 text-amber-900 hover:bg-amber-50'}`}>Large</button>
+              </div>
+            </div>
+
+            {/* Background Music */}
+            <div>
+              <h3 className="font-bold text-emerald-900 mb-3 uppercase tracking-wide text-sm font-serif">Background Music</h3>
+              <div className="flex items-center gap-4 bg-white/60 p-4 rounded-xl border-2 border-amber-300 shadow-sm backdrop-blur-sm">
+                <button 
+                  onClick={() => updateSetting('musicOn', !settings.musicOn)}
+                  className={`relative w-16 h-8 rounded-full transition-colors duration-300 focus:outline-none border-2 ${settings.musicOn ? 'bg-emerald-500 border-emerald-700' : 'bg-gray-300 border-gray-400'}`}
+                >
+                  <div className={`absolute top-0.5 left-1 bg-white w-6 h-6 rounded-full transition-transform duration-300 shadow-md ${settings.musicOn ? 'transform translate-x-7' : ''}`}></div>
+                </button>
+                <span className="font-bold text-emerald-950 w-12">{settings.musicOn ? 'ON 🎵' : 'OFF 🔇'}</span>
+                
+                <input 
+                  type="range" 
+                  min="0" max="1" step="0.05"
+                  value={settings.volume}
+                  onChange={(e) => updateSetting('volume', parseFloat(e.target.value))}
+                  disabled={!settings.musicOn}
+                  className={`flex-1 h-2 rounded-lg appearance-none cursor-pointer ${settings.musicOn ? 'bg-emerald-300 accent-emerald-700' : 'bg-gray-300 opacity-50'}`}
+                />
+              </div>
+              <p className="text-xs text-amber-800 mt-2 font-medium italic">* Music requires an audio file to be configured.</p>
+            </div>
+
+            {/* Font Preview */}
+            <div className="pt-4 border-t-2 border-amber-300">
+               <h3 className="font-bold text-emerald-900 mb-2 uppercase tracking-wide text-sm font-serif">Live Preview</h3>
+               <div className={`bg-white/80 p-4 rounded-xl border-2 border-amber-300 shadow-inner text-emerald-950 ${getDynamicTextClass('base', settings)}`}>
+                 "The magical words are returning to Poetryland!" ✨
+               </div>
+            </div>
+         </div>
+      </div>
+    </div>
+  )
+};
+
+const ScreenStart = ({ updateState, settings, setShowSettings }) => (
+  <div className="min-h-screen flex flex-col items-center justify-center p-6 relative overflow-hidden bg-gradient-to-b from-sky-200 via-green-100 to-emerald-200">
+    {/* Rich Fairytale Background */}
+    <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg fill=\'none\' fill-rule=\'evenodd\'%3E%3Cg fill=\'%2310b981\' fill-opacity=\'0.05\'%3E%3Cpath d=\'M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z\'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')] opacity-50"></div>
+    <div className="absolute top-10 left-10 text-6xl opacity-60 animate-float">☁️</div>
+    <div className="absolute top-24 right-16 text-5xl opacity-70 animate-float" style={{animationDelay: '1s'}}>☁️</div>
+    <div className="absolute bottom-0 left-0 w-full h-48 bg-gradient-to-t from-emerald-500/30 to-transparent"></div>
+    <div className="absolute bottom-10 left-10 text-6xl drop-shadow-lg animate-sway">🌸</div>
+    <div className="absolute bottom-5 right-20 text-7xl drop-shadow-lg animate-sway" style={{animationDelay: '0.5s'}}>🌺</div>
+    <div className="absolute top-1/4 right-[10%] text-6xl drop-shadow-xl opacity-40">🏰</div>
+    
+    <button onClick={() => setShowSettings(true)} className="absolute top-6 right-6 bg-white/90 backdrop-blur-sm text-amber-700 hover:text-amber-900 hover:bg-amber-100 p-4 rounded-full shadow-lg border-2 border-amber-300 transition-transform hover:rotate-90 text-2xl z-50">
+      ⚙️
+    </button>
+
+    <div className="parchment p-10 md:p-16 rounded-[3rem] shadow-[0_20px_50px_rgba(0,0,0,0.3)] border-8 border-[#D4AF37] text-center max-w-4xl w-full z-10 animate-fade-in relative">
+      <div className="absolute -top-16 left-1/2 transform -translate-x-1/2 text-8xl drop-shadow-2xl">🏰</div>
+      <h1 className="text-5xl md:text-7xl font-black text-emerald-950 mb-4 drop-shadow-md tracking-tight font-serif mt-10">POETRY PATH</h1>
+      <p className={`font-bold text-amber-700 mb-2 uppercase tracking-widest font-serif ${getDynamicTextClass('xl', settings)}`}>The Enchanted Kingdom</p>
+      <p className={`text-emerald-800 mb-12 font-medium italic ${getDynamicTextClass('lg', settings)}`}>Listen. Imagine. Create.</p>
+      
+      <div className="grid md:grid-cols-2 gap-8">
+        <button 
+          onClick={() => updateState({ screen: 'GUIDEBOOK', returnScreen: 'START' })}
+          className="bg-gradient-to-br from-amber-50 to-orange-100 border-4 border-[#D4AF37] p-8 rounded-[2rem] transition-all hover:-translate-y-2 hover:shadow-[0_15px_30px_rgba(0,0,0,0.15)] group text-left shadow-lg flex flex-col justify-between"
+        >
+          <div>
+            <div className="text-5xl mb-4 group-hover:scale-110 transition-transform drop-shadow-md">📖</div>
+            <h3 className={`font-extrabold text-amber-950 mb-2 font-serif ${getDynamicTextClass('xl', settings)}`}>LEARN</h3>
+            <p className={`text-amber-800 font-bold mb-4 uppercase tracking-wide ${getDynamicTextClass('sm', settings)}`}>The Poet's Guidebook</p>
+          </div>
+          <p className={`text-amber-900 font-medium ${getDynamicTextClass('base', settings)}`}>Explore the secrets of poetry before beginning your adventure!</p>
+        </button>
+
+        <button 
+          onClick={() => updateState({ screen: 'AVATAR_SELECT' })}
+          className="bg-gradient-to-br from-emerald-50 to-teal-100 border-4 border-[#D4AF37] p-8 rounded-[2rem] transition-all hover:-translate-y-2 hover:shadow-[0_15px_30px_rgba(0,0,0,0.15)] group text-left shadow-lg flex flex-col justify-between relative overflow-hidden"
+        >
+          <div className="absolute -right-4 -bottom-4 text-7xl opacity-30 animate-pulse">✨</div>
+          <div>
+            <div className="text-5xl mb-4 group-hover:scale-110 transition-transform drop-shadow-md">🗺️</div>
+            <h3 className={`font-extrabold text-emerald-950 mb-2 font-serif ${getDynamicTextClass('xl', settings)}`}>PLAY</h3>
+            <p className={`text-emerald-800 font-bold mb-4 uppercase tracking-wide ${getDynamicTextClass('sm', settings)}`}>The Lost Words Adventure</p>
+          </div>
+          <p className={`text-emerald-900 font-medium relative z-10 ${getDynamicTextClass('base', settings)}`}>Travel across Poetryland, collect magical words and create your own poem!</p>
+        </button>
+      </div>
+    </div>
+  </div>
+);
+
+const ScreenGuidebook = ({ state, updateState, settings, setShowSettings }) => {
+  const [lesson, setLesson] = useState(1);
+  const closeGuidebook = () => updateState({ screen: state.returnScreen || 'START' });
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-amber-900 to-amber-950 flex flex-col relative">
+      <TopBar state={state} updateState={updateState} setShowSettings={setShowSettings} />
+      <div className="flex-1 p-6 flex flex-col items-center justify-center relative">
+        {/* Book shadow effect behind the main panel */}
+        <div className="absolute inset-x-4 inset-y-8 bg-black/20 blur-xl rounded-[3rem] max-w-5xl mx-auto"></div>
+        
+        <div className="parchment p-8 md:p-14 rounded-[2rem] shadow-2xl border-4 border-[#D4AF37] max-w-4xl w-full flex flex-col relative overflow-hidden z-10 min-h-[600px]">
+          {/* Decorative book spine / fold */}
+          <div className="absolute top-0 bottom-0 left-12 w-2 border-l-2 border-r-2 border-amber-700/20 bg-amber-600/10"></div>
+          
+          <div className="pl-16 flex justify-between items-center mb-8 border-b-2 border-amber-300 pb-4 relative z-10">
+            <h2 className="text-4xl font-extrabold text-amber-950 font-serif flex items-center gap-3">
+              The Poet's Guidebook
+            </h2>
+            <button onClick={closeGuidebook} className="bg-amber-100 text-rose-800 hover:bg-rose-200 rounded-full w-12 h-12 flex items-center justify-center font-bold text-2xl transition-colors shadow-sm border-2 border-rose-300">
+              ✖
+            </button>
+          </div>
+          
+          <div className={`pl-16 flex-1 relative z-10 ${getDynamicTextClass('base', settings)}`}>
+            {lesson === 1 && (
+              <div className="animate-fade-in">
+                <h3 className={`font-bold text-emerald-900 mb-6 font-serif ${getDynamicTextClass('xl', settings)}`}>Lesson 1: Action Verbs <span className="opacity-50">🏃</span></h3>
+                <p className="text-amber-950 mb-8 font-medium"><strong>Action verbs</strong> are words that describe what someone or something does.</p>
+                <div className="flex flex-wrap gap-4 mb-10">
+                  {['Clap', 'Jump', 'Wave', 'Dance', 'Smile', 'Walk'].map(w => (
+                    <span key={w} className={`bg-gradient-to-b from-emerald-100 to-emerald-200 text-emerald-950 px-6 py-3 rounded-full font-bold shadow-md border-2 border-emerald-400 ${getDynamicTextClass('base', settings)}`}>{w}</span>
+                  ))}
+                </div>
+                <div className="bg-white/60 p-8 rounded-2xl border-2 border-emerald-200 shadow-inner">
+                  <p className={`font-serif italic text-emerald-950 ${getDynamicTextClass('lg', settings)}`}>"My hands can <strong className="text-emerald-700 underline decoration-wavy decoration-emerald-400">clap</strong> and <strong className="text-emerald-700 underline decoration-wavy decoration-emerald-400">tap</strong>."</p>
+                </div>
+              </div>
+            )}
+
+            {lesson === 2 && (
+              <div className="animate-fade-in">
+                <h3 className={`font-bold text-rose-900 mb-6 font-serif ${getDynamicTextClass('xl', settings)}`}>Lesson 2: Descriptive Words <span className="opacity-50">🌸</span></h3>
+                <p className="text-amber-950 mb-8 font-medium"><strong>Descriptive words</strong>, such as adjectives, tell us more about a person, thing or body part.</p>
+                <div className="flex flex-wrap gap-4 mb-10">
+                  {['Bright', 'Gentle', 'Tiny', 'Cheerful', 'Helpful', 'Quick'].map(w => (
+                    <span key={w} className={`bg-gradient-to-b from-rose-100 to-rose-200 text-rose-950 px-6 py-3 rounded-full font-bold shadow-md border-2 border-rose-400 ${getDynamicTextClass('base', settings)}`}>{w}</span>
+                  ))}
+                </div>
+                <div className="bg-white/60 p-8 rounded-2xl border-2 border-rose-200 shadow-inner">
+                  <p className={`font-serif italic text-rose-950 ${getDynamicTextClass('lg', settings)}`}>"My <strong className="text-rose-700 underline decoration-wavy decoration-rose-400">little</strong> hands are <strong className="text-rose-700 underline decoration-wavy decoration-rose-400">helpful</strong>."</p>
+                </div>
+              </div>
+            )}
+
+            {lesson === 3 && (
+              <div className="animate-fade-in">
+                <h3 className={`font-bold text-blue-900 mb-6 font-serif ${getDynamicTextClass('xl', settings)}`}>Lesson 3: Rhyming Words <span className="opacity-50">🎵</span></h3>
+                <p className="text-amber-950 mb-8 font-medium"><strong>Rhyming words</strong> have similar ending sounds. They make poems sound more musical and enjoyable.</p>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-6 mb-10">
+                  {[
+                    ['Clap', 'Tap'], ['Bright', 'Light'], ['Play', 'Day'],
+                    ['Hop', 'Stop'], ['Hear', 'Cheer']
+                  ].map((pair, i) => (
+                    <div key={i} className={`bg-gradient-to-b from-blue-50 to-blue-100 border-2 border-blue-300 p-5 rounded-2xl text-center font-bold text-blue-950 shadow-md ${getDynamicTextClass('base', settings)}`}>
+                      {pair[0]} <span className="text-blue-500 mx-2">~</span> {pair[1]}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {lesson === 4 && (
+              <div className="animate-fade-in">
+                <h3 className={`font-bold text-purple-900 mb-6 font-serif ${getDynamicTextClass('xl', settings)}`}>Lesson 4: Build Your Own Poem <span className="opacity-50">✨</span></h3>
+                <p className="text-amber-950 mb-6 font-medium">Combine action verbs, descriptive words and rhyming words to create a short poem!</p>
+                <div className="bg-white/80 p-8 rounded-2xl border-2 border-[#D4AF37] mb-8 font-serif space-y-4 shadow-[inset_0_0_20px_rgba(212,175,55,0.2)]">
+                  <p className={getDynamicTextClass('lg', settings)}>My hands can <strong className="text-emerald-700">clap</strong> and <strong className="bg-teal-200 text-teal-900 px-2 rounded-md shadow-sm">tap</strong>,</p>
+                  <p className={getDynamicTextClass('lg', settings)}>My <strong className="text-rose-700">busy</strong> fingers move with a <strong className="bg-teal-200 text-teal-900 px-2 rounded-md shadow-sm">snap</strong>,</p>
+                  <p className={getDynamicTextClass('lg', settings)}>They help me <strong className="text-emerald-700">draw</strong> and <strong className="bg-purple-200 text-purple-900 px-2 rounded-md shadow-sm">play</strong>,</p>
+                  <p className={getDynamicTextClass('lg', settings)}>And create something every <strong className="bg-purple-200 text-purple-900 px-2 rounded-md shadow-sm">day</strong>.</p>
+                </div>
+                <div className={`text-amber-950 grid grid-cols-1 sm:grid-cols-3 gap-6 bg-amber-100/50 p-5 rounded-xl border border-amber-300 font-medium ${getDynamicTextClass('sm', settings)}`}>
+                  <div><strong className="text-emerald-800 text-base">Action Verbs</strong><br/>(what they do)</div>
+                  <div><strong className="text-rose-800 text-base">Descriptive Words</strong><br/>(what they are like)</div>
+                  <div><strong className="bg-teal-200 text-teal-950 px-1 rounded">tap/snap</strong> & <strong className="bg-purple-200 text-purple-950 px-1 rounded">play/day</strong><br/>(Rhyming pairs!)</div>
+                </div>
+              </div>
+            )}
+
+            {lesson === 5 && (
+              <div className="animate-fade-in text-center flex flex-col items-center justify-center py-6 h-full">
+                <span className="text-8xl mb-8 inline-block animate-float drop-shadow-lg">🌟</span>
+                <h3 className={`font-extrabold text-amber-950 mb-6 font-serif ${getDynamicTextClass('xl', settings)}`}>YOU'RE READY, YOUNG POET!</h3>
+                <p className={`text-amber-900 mb-12 font-medium max-w-2xl leading-relaxed ${getDynamicTextClass('lg', settings)}`}>
+                  Wonderful! You have explored action verbs, descriptive words and rhyming words. 
+                  Now that you have discovered the secrets of poetry, you are ready to begin your adventure across Poetryland!
+                </p>
+                <div className="flex flex-col sm:flex-row gap-6 justify-center w-full max-w-xl">
+                <button 
+                  onClick={() => updateState({ screen: 'AVATAR_SELECT' })}
+                  className={`flex-1 bg-gradient-to-b from-emerald-500 to-emerald-700 text-white font-bold py-4 px-6 rounded-full shadow-[0_6px_0_#065f46] hover:translate-y-1 hover:shadow-none transition-all border-2 border-emerald-400 ${getDynamicTextClass('base', settings)}`}
+                >
+                  START PLAYING
+                </button>
+                <button 
+                  onClick={() => updateState({ screen: 'START' })}
+                  className={`flex-1 bg-gradient-to-b from-amber-50 to-amber-200 text-amber-950 font-bold py-4 px-6 rounded-full shadow-[0_6px_0_#b45309] hover:translate-y-1 hover:shadow-none transition-all border-2 border-[#D4AF37] ${getDynamicTextClass('base', settings)}`}
+                >
+                  BACK TO MENU
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {lesson < 5 && (
+          <div className="pl-16 flex justify-between items-center mt-10 pt-6 border-t-2 border-amber-300 relative z-10">
+            <button 
+              onClick={() => setLesson(Math.max(1, lesson - 1))}
+              disabled={lesson === 1}
+              className={`px-8 py-3 rounded-full font-bold transition-all shadow-md border-2 ${lesson === 1 ? 'bg-amber-100 text-amber-400 border-amber-200' : 'bg-white text-amber-900 border-[#D4AF37] hover:bg-amber-50'} ${getDynamicTextClass('base', settings)}`}
+            >
+              Previous
+            </button>
+            <div className="flex gap-4">
+              {[1,2,3,4].map(l => (
+                <div key={l} className={`w-4 h-4 rounded-full transition-colors border border-amber-400 ${lesson === l ? 'bg-emerald-500 scale-125 shadow-md' : 'bg-amber-100'}`} />
+              ))}
+            </div>
+            <button 
+              onClick={() => setLesson(lesson + 1)}
+              className={`px-10 py-3 rounded-full font-bold transition-all shadow-[0_4px_0_#b45309] active:translate-y-1 active:shadow-none border-2 border-[#D4AF37] bg-gradient-to-b from-amber-300 to-amber-500 text-amber-950 ${getDynamicTextClass('base', settings)}`}
+            >
+              Next
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  </div>
+);
+};
+
+const ScreenAvatar = ({ state, updateState, settings, setShowSettings }) => {
+  const selectAvatar = (id) => updateState({ avatarId: id, screen: 'PATHWAY_SELECT' });
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-green-900 via-emerald-800 to-green-950 flex flex-col relative">
+      {/* Magical Forest Background */}
+      <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg width=\'100\' height=\'100\' viewBox=\'0 0 100 100\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Ccircle cx=\'50\' cy=\'50\' r=\'1\' fill=\'%23ffffff\' fill-opacity=\'0.2\'/%3E%3C/svg%3E')] opacity-30"></div>
+      <button onClick={() => setShowSettings(true)} className="absolute top-6 right-6 bg-white/10 backdrop-blur-md text-amber-100 hover:bg-white/20 p-4 rounded-full shadow-lg border-2 border-amber-400/50 transition-transform hover:rotate-90 text-2xl z-50">⚙️</button>
+      
+      <div className="flex-1 flex flex-col items-center py-12 px-6 relative z-10">
+        <h2 className={`font-black text-amber-400 mb-4 font-serif text-center drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] ${getDynamicTextClass('xl', settings)}`}>CHOOSE YOUR POET IDENTITY!</h2>
+        <p className={`text-amber-100 mb-12 text-center font-medium ${getDynamicTextClass('lg', settings)}`}>Select your royal character for the adventure.</p>
+        
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-7xl w-full">
+          {AVATARS.map(avatar => (
+            <div key={avatar.id} className={`bg-gradient-to-b ${avatar.color} border-8 ${avatar.borderColor} rounded-t-full rounded-b-2xl p-6 flex flex-col items-center text-center shadow-[0_20px_40px_rgba(0,0,0,0.5)] transition-all hover:-translate-y-4 hover:shadow-[0_25px_50px_rgba(252,211,77,0.3)] relative overflow-hidden group`}>
+              
+              {/* Decorative ornate background lines */}
+              <div className="absolute inset-2 border-2 border-dashed border-white/40 rounded-t-full rounded-b-xl pointer-events-none"></div>
+              
+              <div className="absolute top-0 right-0 w-32 h-32 bg-white rounded-full blur-3xl opacity-30 group-hover:opacity-60 transition-opacity pointer-events-none"></div>
+              
+              <div className="mt-8 mb-6 relative">
+                 <div className="w-32 h-32 rounded-full bg-white/40 backdrop-blur-sm border-4 border-white/60 shadow-inner flex items-center justify-center text-7xl drop-shadow-xl group-hover:scale-110 transition-transform z-10 relative">
+                   {avatar.icon}
+                 </div>
+                 <div className="absolute -bottom-2 -right-2 text-4xl animate-pulse">{avatar.id === 'elara' ? '👑' : avatar.id === 'rowan' ? '⚔️' : avatar.id === 'ember' ? '✨' : '🪄'}</div>
+              </div>
+              
+              <h3 className={`font-black ${avatar.textColor} mb-2 font-serif bg-white/50 px-4 py-1 rounded-full ${getDynamicTextClass('lg', settings)}`}>{avatar.name}</h3>
+              <p className={`font-bold text-gray-800 uppercase tracking-widest mb-6 ${getDynamicTextClass('sm', settings)}`}>{avatar.role}</p>
+              <p className={`text-gray-900 mb-8 flex-1 font-medium px-2 ${getDynamicTextClass('base', settings)}`}>{avatar.desc}</p>
+              
+              <button onClick={() => selectAvatar(avatar.id)} className={`bg-gradient-to-b from-white to-gray-200 ${avatar.textColor} font-bold py-4 px-6 rounded-full w-full shadow-[0_4px_0_#9ca3af] active:translate-y-1 active:shadow-none border-2 ${avatar.borderColor} transition-all z-20 ${getDynamicTextClass('base', settings)}`}>
+                CHOOSE CHARACTER
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const ScreenPathway = ({ state, updateState, settings, setShowSettings }) => {
+  const selectPathway = (id) => updateState({ pathwayId: id, screen: 'TOPIC_SELECT' });
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-indigo-900 to-blue-950 flex flex-col relative">
+      <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg width=\'100\' height=\'100\' viewBox=\'0 0 100 100\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Ccircle cx=\'50\' cy=\'50\' r=\'1\' fill=\'%23ffffff\' fill-opacity=\'0.2\'/%3E%3C/svg%3E')] opacity-40"></div>
+      <button onClick={() => setShowSettings(true)} className="absolute top-6 right-6 bg-white/10 backdrop-blur-md text-amber-100 hover:bg-white/20 p-4 rounded-full shadow-lg border-2 border-amber-400/50 transition-transform hover:rotate-90 text-2xl z-50">⚙️</button>
+      
+      <div className="flex-1 flex flex-col items-center py-12 px-6 relative z-10">
+        <h2 className={`font-black text-amber-400 mb-4 font-serif text-center drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] ${getDynamicTextClass('xl', settings)}`}>Choose Your Poetry Pathway</h2>
+        <p className={`text-blue-200 mb-12 text-center font-medium ${getDynamicTextClass('lg', settings)}`}>How much support would you like?</p>
+        
+        <div className="grid md:grid-cols-3 gap-8 max-w-6xl w-full">
+          {PATHWAYS.map(p => (
+            <div key={p.id} className={`${p.color} border-4 ${p.border} rounded-[2rem] p-8 flex flex-col items-center text-center shadow-[0_15px_30px_rgba(0,0,0,0.4)] transition-all hover:-translate-y-3 hover:shadow-[0_20px_40px_rgba(252,211,77,0.3)] bg-opacity-95 relative overflow-hidden group`}>
+              <div className="absolute top-0 right-0 w-40 h-40 bg-white rounded-full blur-3xl opacity-50 group-hover:opacity-70 transition-opacity pointer-events-none"></div>
+              
+              <div className="w-28 h-28 bg-white/50 backdrop-blur-sm rounded-full shadow-inner border-4 border-white/60 flex items-center justify-center text-6xl mb-6 group-hover:scale-110 transition-transform">
+                {p.icon}
+              </div>
+              
+              <h3 className={`font-black ${p.text} mb-2 font-serif ${getDynamicTextClass('lg', settings)}`}>{p.name}</h3>
+              <p className={`font-bold bg-white/60 px-4 py-1 rounded-full uppercase tracking-wider mb-6 opacity-90 ${getDynamicTextClass('sm', settings)}`}>{p.level}</p>
+              <p className={`text-gray-900 font-medium mb-8 min-h-[4rem] italic ${getDynamicTextClass('base', settings)}`}>"{p.desc}"</p>
+              
+              <ul className={`text-left w-full space-y-4 mb-10 flex-1 text-gray-800 font-medium bg-white/40 p-4 rounded-xl shadow-inner ${getDynamicTextClass('sm', settings)}`}>
+                {p.features.map(f => <li key={f} className="flex items-center gap-3"><span className="bg-white rounded-full shadow-sm w-6 h-6 flex items-center justify-center text-xs border border-gray-200">✨</span> {f}</li>)}
+              </ul>
+              
+              <button onClick={() => selectPathway(p.id)} className={`bg-gradient-to-b from-white to-gray-200 ${p.text} font-bold py-4 px-8 rounded-full w-full shadow-[0_4px_0_#9ca3af] active:translate-y-1 active:shadow-none border-2 ${p.border} transition-all z-20 ${getDynamicTextClass('base', settings)}`}>
+                SELECT PATHWAY
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const ScreenTopic = ({ state, updateState, settings, setShowSettings }) => {
+  const selectTopic = (id) => updateState({ topicId: id, screen: 'HQ' });
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-rose-900 via-pink-900 to-rose-950 flex flex-col relative">
+      <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg width=\'100\' height=\'100\' viewBox=\'0 0 100 100\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Ccircle cx=\'50\' cy=\'50\' r=\'1\' fill=\'%23ffffff\' fill-opacity=\'0.15\'/%3E%3C/svg%3E')] opacity-40"></div>
+      <button onClick={() => setShowSettings(true)} className="absolute top-6 right-6 bg-white/10 backdrop-blur-md text-amber-100 hover:bg-white/20 p-4 rounded-full shadow-lg border-2 border-amber-400/50 transition-transform hover:rotate-90 text-2xl z-50">⚙️</button>
+      
+      <div className="flex-1 flex flex-col items-center justify-center py-12 px-6 relative z-10">
+        <h2 className={`font-black text-amber-400 mb-4 font-serif text-center drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] ${getDynamicTextClass('xl', settings)}`}>Choose Your Topic</h2>
+        <p className={`text-pink-200 mb-12 text-center font-medium ${getDynamicTextClass('lg', settings)}`}>What will your magical poem be about?</p>
+        
+        <div className="flex flex-wrap justify-center gap-8 max-w-5xl">
+          {TOPICS.map(t => (
+            <button 
+              key={t.id} 
+              onClick={() => selectTopic(t.id)}
+              className="parchment hover:bg-amber-50 border-4 border-[#D4AF37] rounded-[2rem] p-8 flex flex-col items-center text-center shadow-[0_15px_30px_rgba(0,0,0,0.4)] transition-all hover:scale-110 hover:-translate-y-2 w-44 md:w-56 group relative overflow-hidden"
+            >
+              <div className="absolute top-2 left-2 text-2xl opacity-20">🌿</div>
+              <div className="absolute bottom-2 right-2 text-2xl opacity-20">🌸</div>
+              <div className="w-24 h-24 bg-rose-100 rounded-full flex items-center justify-center text-6xl mb-6 shadow-inner border-2 border-rose-200 group-hover:scale-110 transition-transform">
+                {t.icon}
+              </div>
+              <h3 className={`font-black text-rose-950 font-serif ${getDynamicTextClass('lg', settings)}`}>{t.id}</h3>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const ScreenHQ = ({ state, updateState, settings, setShowSettings }) => {
+  const activeAvatar = AVATARS.find(a => a.id === state.avatarId) || AVATARS[0];
+  const acceptMission = () => {
+    const newUnlocked = state.unlockedLocs.includes('VERB_FOREST') ? state.unlockedLocs : [...state.unlockedLocs, 'VERB_FOREST'];
+    const newCompleted = state.completedLocs.includes('HQ') ? state.completedLocs : [...state.completedLocs, 'HQ'];
+    updateState({ 
+      unlockedLocs: newUnlocked,
+      completedLocs: newCompleted,
+      screen: 'MAP' 
+    });
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-blue-900 to-indigo-950 flex flex-col relative">
+      <TopBar state={state} updateState={updateState} setShowSettings={setShowSettings} />
+      <div className="flex-1 flex flex-col md:flex-row relative items-stretch">
+        <ProgressTracker state={state} settings={settings} />
+        
+        <div className="flex-1 p-6 flex flex-col items-center justify-center animate-fade-in relative z-10">
+          <div className="absolute top-10 left-10 text-8xl opacity-10 pointer-events-none">🏰</div>
+          <div className="absolute bottom-10 right-10 text-8xl opacity-10 pointer-events-none">📜</div>
+
+          <div className="parchment p-10 md:p-14 rounded-[3rem] shadow-[0_20px_50px_rgba(0,0,0,0.5)] border-8 border-[#D4AF37] max-w-2xl text-center relative overflow-hidden">
+             
+             {/* Royal Wax Seal Decor */}
+             <div className="absolute top-6 right-6 w-16 h-16 bg-rose-700 rounded-full flex items-center justify-center shadow-lg border-2 border-rose-900 text-white text-2xl">👑</div>
+
+             <div className="text-8xl mb-8 inline-block animate-bounce-slight drop-shadow-xl mt-4">✉️</div>
+             <h2 className={`font-black text-amber-950 mb-8 font-serif uppercase tracking-widest ${getDynamicTextClass('xl', settings)}`}>Royal Briefing</h2>
+             
+             <div className={`font-serif text-amber-950 space-y-5 mb-10 text-left bg-white/40 p-8 rounded-2xl border border-amber-300 shadow-inner ${getDynamicTextClass('base', settings)}`}>
+               <p className="font-bold">Dear {activeAvatar.name},</p>
+               <p>Welcome to Poetryland! Our magical words have disappeared, and the Young Poets' Festival cannot begin without them.</p>
+               <p>Your quest is to travel the kingdom, discover the missing action words, restore the colourful descriptions, and repair the Rhyme River.</p>
+               <p>You will collect magical word treasures along the way. Your final challenge is to create a beautiful poem about <strong className="text-emerald-800 bg-emerald-200/50 px-2 rounded font-bold border border-emerald-300">{state.topicId}</strong>!</p>
+               <p className="italic font-bold text-rose-800 text-center mt-6">Let the adventure begin!</p>
+             </div>
+             
+             <button onClick={acceptMission} className={`bg-gradient-to-b from-amber-400 to-amber-600 text-amber-950 font-black py-4 px-12 rounded-full shadow-[0_6px_0_#92400e] active:translate-y-1 active:shadow-none transition-all border-2 border-amber-200 ${getDynamicTextClass('lg', settings)}`}>
+               ACCEPT MISSION
+             </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const ScreenMap = ({ state, updateState, setModal, settings, setShowSettings }) => {
+  const activeAvatar = AVATARS.find(a => a.id === state.avatarId) || AVATARS[0];
+  const locs = [
+    { id: 'HQ', name: 'Mission HQ', screen: 'HQ', icon: '🏰', color: 'bg-indigo-100 border-indigo-400 text-indigo-900' },
+    { id: 'VERB_FOREST', name: 'Action Verb Forest', screen: 'VERB_FOREST', icon: '🌲', color: 'bg-emerald-100 border-emerald-500 text-emerald-900' },
+    { id: 'ADJ_GARDEN', name: 'Adjective Garden', screen: 'ADJ_GARDEN', icon: '🌸', color: 'bg-pink-100 border-pink-400 text-pink-900' },
+    { id: 'RHYME_RIVER', name: 'Rhyme River', screen: 'RHYME_RIVER', icon: '🌊', color: 'bg-cyan-100 border-cyan-400 text-cyan-900' },
+    { id: 'STUDIO', name: 'Poetry Studio', screen: 'STUDIO', icon: '✍️', color: 'bg-amber-100 border-amber-500 text-amber-900' },
+    { id: 'FESTIVAL', name: 'Poets\' Festival', screen: 'FESTIVAL', icon: '🎪', color: 'bg-rose-100 border-rose-400 text-rose-900' }
+  ];
+
+  const handleLocClick = (loc) => {
+    if (state.unlockedLocs.includes(loc.id)) {
+      updateState({ screen: loc.screen });
+    } else {
+      setModal({ show: true, title: 'Location Locked', content: 'Complete your current mission to unlock this destination!' });
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-green-900 via-emerald-800 to-green-900 flex flex-col relative">
+      <TopBar state={state} updateState={updateState} setShowSettings={setShowSettings} />
+      <div className="flex-1 flex flex-col md:flex-row relative items-stretch">
+        <ProgressTracker state={state} settings={settings} />
+        
+        <div className="flex-1 p-6 flex flex-col items-center overflow-y-auto relative z-10">
+          <h2 className={`font-black text-amber-400 mb-2 font-serif drop-shadow-md ${getDynamicTextClass('xl', settings)}`}>The Enchanted Map</h2>
+          <p className={`text-amber-100 mb-8 font-medium ${getDynamicTextClass('lg', settings)}`}>Click an unlocked destination to continue your journey!</p>
+          
+          {/* Fairytale Kingdom Map Container */}
+          <div className="relative w-full max-w-5xl aspect-[4/3] min-h-[550px] bg-gradient-to-b from-sky-300 to-emerald-400 rounded-[3rem] border-[12px] border-[#D4AF37] shadow-[0_20px_50px_rgba(0,0,0,0.5)] p-8 flex flex-col items-center justify-around overflow-hidden">
+             
+             {/* Map Scenery Layers */}
+             <div className="absolute bottom-0 w-full h-2/3 bg-emerald-500 rounded-b-[2rem] rounded-t-[40%] shadow-[inset_0_20px_20px_rgba(0,0,0,0.1)]"></div>
+             <div className="absolute bottom-0 -left-20 w-3/4 h-3/4 bg-green-500 rounded-t-[50%] shadow-[inset_0_20px_20px_rgba(0,0,0,0.1)]"></div>
+             <div className="absolute bottom-0 -right-20 w-2/3 h-1/2 bg-emerald-600 rounded-t-[40%] shadow-[inset_0_20px_20px_rgba(0,0,0,0.1)]"></div>
+             
+             <div className="absolute top-10 right-20 text-6xl opacity-80 animate-float">☁️</div>
+             <div className="absolute top-20 left-10 text-5xl opacity-80 animate-float" style={{animationDelay: '1s'}}>☁️</div>
+             <div className="absolute top-[30%] left-[45%] text-7xl drop-shadow-xl opacity-60">🏰</div>
+             <div className="absolute bottom-10 left-10 text-6xl drop-shadow-lg">🌲</div>
+             <div className="absolute bottom-20 right-10 text-6xl drop-shadow-lg">🌸</div>
+             
+             {/* Winding Cobblestone Path */}
+             <svg className="absolute inset-0 w-full h-full z-10" preserveAspectRatio="none" viewBox="0 0 100 100">
+                <path d="M 10,20 Q 30,5 50,20 T 90,20 Q 80,50 50,50 T 10,80 Q 30,95 50,80 T 90,80" fill="none" stroke="#D4AF37" strokeWidth="2" strokeDasharray="4 4" opacity="0.6"/>
+             </svg>
+             
+             <div className="grid grid-cols-2 md:grid-cols-3 gap-8 w-full z-20 relative h-full items-center">
+               {locs.map(loc => {
+                 const isUnlocked = state.unlockedLocs.includes(loc.id);
+                 const isCompleted = state.completedLocs.includes(loc.id);
+                 const isCurrent = isUnlocked && !isCompleted && state.unlockedLocs[state.unlockedLocs.length - 1] === loc.id;
+
+                 return (
+                   <button 
+                     key={loc.id}
+                     onClick={() => handleLocClick(loc)}
+                     className={`flex flex-col items-center text-center transition-all relative z-30 group ${isUnlocked ? 'hover:-translate-y-3 cursor-pointer opacity-100' : 'opacity-70 cursor-not-allowed grayscale'}`}
+                   >
+                     <div className={`w-32 h-32 rounded-full border-6 shadow-[0_10px_20px_rgba(0,0,0,0.3)] flex items-center justify-center text-6xl mb-4 relative transition-all ${isUnlocked ? `${loc.color} group-hover:shadow-[0_15px_30px_rgba(0,0,0,0.4)]` : 'bg-gray-300 border-gray-500'} ${isCurrent ? 'ring-4 ring-[#D4AF37] ring-offset-4 animate-pulse' : ''}`}>
+                       {loc.icon}
+                       {!isUnlocked && <div className="absolute inset-0 flex items-center justify-center bg-black/20 rounded-full backdrop-blur-[2px]"><div className="text-4xl drop-shadow-lg">🔒</div></div>}
+                       {isCompleted && <div className="absolute -bottom-3 -right-3 bg-gradient-to-b from-amber-300 to-amber-500 text-amber-950 rounded-full w-12 h-12 flex items-center justify-center border-4 border-white font-black text-xl shadow-lg">✓</div>}
+                       {(isCurrent || isCompleted) && (
+                         <div className="absolute -top-6 -left-6 text-5xl animate-bounce drop-shadow-xl z-40 bg-white/80 rounded-full p-2 backdrop-blur-sm border-4 border-[#D4AF37]">
+                           {activeAvatar.icon}
+                         </div>
+                       )}
+                     </div>
+                     <span className={`font-black ${isUnlocked ? 'text-amber-950 border-[#D4AF37]' : 'text-gray-700 border-gray-400'} parchment px-5 py-2 rounded-full shadow-lg border-2 text-sm z-30 font-serif`}>{loc.name}</span>
+                   </button>
+                 )
+               })}
+             </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const ScreenVerb = ({ state, updateState, vocab, settings, setShowSettings }) => {
+  const [selected, setSelected] = useState(state.toolkit.verbs || []);
+  const toggle = (v) => setSelected(prev => prev.includes(v) ? prev.filter(x => x !== v) : [...prev, v]);
+
+  const complete = () => {
+    const newUnlocked = state.unlockedLocs.includes('ADJ_GARDEN') ? state.unlockedLocs : [...state.unlockedLocs, 'ADJ_GARDEN'];
+    const newCompleted = state.completedLocs.includes('VERB_FOREST') ? state.completedLocs : [...state.completedLocs, 'VERB_FOREST'];
+    updateState({ 
+      toolkit: { ...state.toolkit, verbs: selected },
+      treasures: { ...state.treasures, gem: true },
+      unlockedLocs: newUnlocked,
+      completedLocs: newCompleted,
+      screen: 'MAP'
+    });
+  };
+
+  const words = vocab?.verbs || ['Clap', 'Tap', 'Wave', 'Draw', 'Catch', 'Hold'];
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-emerald-900 via-green-800 to-emerald-950 flex flex-col relative">
+      <TopBar state={state} updateState={updateState} setShowSettings={setShowSettings} />
+      <div className="flex-1 flex flex-col md:flex-row relative items-stretch">
+        <ProgressTracker state={state} settings={settings} />
+        
+        <div className="flex-1 p-6 flex flex-col items-center animate-fade-in overflow-y-auto relative z-10">
+          <div className="absolute top-10 left-10 text-8xl opacity-30 drop-shadow-xl pointer-events-none animate-sway">🌲</div>
+          <div className="absolute bottom-20 right-10 text-8xl opacity-30 drop-shadow-xl pointer-events-none animate-sway" style={{animationDelay: '1s'}}>🌳</div>
+          <div className="absolute top-1/2 left-1/4 text-4xl opacity-50 animate-pulse pointer-events-none">✨</div>
+          <div className="absolute top-1/3 right-1/4 text-4xl opacity-50 animate-pulse pointer-events-none" style={{animationDelay: '0.5s'}}>✨</div>
+          
+          <h2 className={`font-black text-amber-400 mb-4 text-center font-serif drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] ${getDynamicTextClass('xl', settings)}`}>🌲 Action Verb Forest</h2>
+          <p className={`text-emerald-950 mb-10 text-center max-w-2xl font-bold bg-amber-100/90 px-8 py-4 rounded-full shadow-[0_10px_20px_rgba(0,0,0,0.3)] backdrop-blur-md border-4 border-amber-300 ${getDynamicTextClass('lg', settings)}`}>
+            The Action Verb Gem has lost its power! Select action words related to <strong className="text-rose-700 bg-rose-100 px-2 rounded">{state.topicId}</strong>.
+          </p>
+          
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-6 max-w-4xl w-full mb-12 relative z-20">
+            {words.map(w => {
+              const isSelected = selected.includes(w);
+              return (
+                <button
+                  key={w}
+                  onClick={() => toggle(w)}
+                  className={`p-6 rounded-[2rem] border-4 font-bold transition-all flex flex-col items-center justify-center gap-4 ${isSelected ? 'bg-gradient-to-b from-amber-100 to-amber-300 border-amber-500 text-amber-950 shadow-[0_10px_20px_rgba(252,211,77,0.4)] scale-105 ring-4 ring-amber-200' : 'bg-white/90 border-emerald-300 text-emerald-900 hover:border-amber-400 hover:shadow-lg hover:-translate-y-2 backdrop-blur-sm'} ${getDynamicTextClass('lg', settings)}`}
+                >
+                  <span className="text-5xl drop-shadow-md">{getEmojiForWord(w)}</span>
+                  <span className="flex items-center gap-2 font-serif">
+                    {w} {isSelected && <span className="bg-emerald-500 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm shadow-md border-2 border-white">✓</span>}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+
+          <div className="parchment p-8 rounded-3xl shadow-[0_15px_30px_rgba(0,0,0,0.4)] border-4 border-[#D4AF37] text-center max-w-xl w-full mb-10 z-20">
+            <h3 className={`font-black text-amber-950 mb-4 border-b-2 border-amber-300 pb-3 font-serif ${getDynamicTextClass('lg', settings)}`}>Selected Action Verbs ({selected.length})</h3>
+            <div className="flex flex-wrap justify-center gap-3 min-h-[3rem]">
+               {selected.length === 0 ? <span className="text-amber-800 italic">Your action words will appear here!</span> : selected.map(w => <span key={w} className={`bg-emerald-600 text-white px-5 py-2 rounded-full shadow-md font-bold border-2 border-emerald-400 ${getDynamicTextClass('sm', settings)}`}>{w}</span>)}
+            </div>
+          </div>
+
+          {selected.length > 0 && (
+            <button onClick={complete} className={`bg-gradient-to-b from-amber-400 to-amber-600 text-amber-950 font-black py-4 px-12 rounded-full shadow-[0_6px_0_#92400e] active:translate-y-1 active:shadow-none transition-all animate-bounce-slight border-2 border-amber-200 z-20 ${getDynamicTextClass('lg', settings)}`}>
+              Collect Action Gem & Return 💎
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const ScreenAdjective = ({ state, updateState, vocab, settings, setShowSettings }) => {
+  const [selected, setSelected] = useState(state.toolkit.adjectives || []);
+  const toggle = (v) => setSelected(prev => prev.includes(v) ? prev.filter(x => x !== v) : [...prev, v]);
+
+  const complete = () => {
+    const newUnlocked = state.unlockedLocs.includes('RHYME_RIVER') ? state.unlockedLocs : [...state.unlockedLocs, 'RHYME_RIVER'];
+    const newCompleted = state.completedLocs.includes('ADJ_GARDEN') ? state.completedLocs : [...state.completedLocs, 'ADJ_GARDEN'];
+    updateState({ 
+      toolkit: { ...state.toolkit, adjectives: selected },
+      treasures: { ...state.treasures, star: true },
+      unlockedLocs: newUnlocked,
+      completedLocs: newCompleted,
+      screen: 'MAP'
+    });
+  };
+
+  const words = vocab?.adjectives || ['Helpful', 'Gentle', 'Busy', 'Quick', 'Kind', 'Cheerful'];
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-rose-200 via-pink-100 to-rose-300 flex flex-col relative">
+      <TopBar state={state} updateState={updateState} setShowSettings={setShowSettings} />
+      <div className="flex-1 flex flex-col md:flex-row relative items-stretch">
+        <ProgressTracker state={state} settings={settings} />
+        
+        <div className="flex-1 p-6 flex flex-col items-center animate-fade-in overflow-y-auto relative z-10">
+          <div className="absolute top-10 left-20 text-8xl opacity-40 drop-shadow-xl pointer-events-none animate-sway">🌸</div>
+          <div className="absolute bottom-20 right-10 text-9xl opacity-40 drop-shadow-xl pointer-events-none animate-sway" style={{animationDelay: '1s'}}>🌺</div>
+          <div className="absolute top-1/2 left-10 text-6xl opacity-50 animate-float pointer-events-none">🦋</div>
+          
+          <h2 className={`font-black text-rose-900 mb-4 text-center font-serif drop-shadow-md ${getDynamicTextClass('xl', settings)}`}>🌸 Adjective Garden</h2>
+          <p className={`text-rose-950 mb-10 text-center max-w-2xl font-bold bg-white/70 px-8 py-4 rounded-full shadow-[0_10px_20px_rgba(0,0,0,0.1)] backdrop-blur-md border-4 border-rose-300 ${getDynamicTextClass('lg', settings)}`}>
+            The garden has lost its colours! Select descriptive words to bring it back to life.
+          </p>
+          
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-6 max-w-4xl w-full mb-12 relative z-20">
+            {words.map(w => {
+              const isSelected = selected.includes(w);
+              return (
+                <button
+                  key={w}
+                  onClick={() => toggle(w)}
+                  className={`p-6 rounded-[2rem] border-4 font-bold transition-all flex flex-col items-center justify-center gap-4 ${isSelected ? 'bg-gradient-to-b from-rose-100 to-rose-300 border-rose-500 text-rose-950 shadow-[0_10px_20px_rgba(225,29,72,0.3)] scale-105 ring-4 ring-rose-200' : 'bg-white/90 border-rose-200 text-rose-800 hover:border-rose-400 hover:shadow-lg hover:-translate-y-2 backdrop-blur-sm'} ${getDynamicTextClass('lg', settings)}`}
+                >
+                  <span className="text-5xl drop-shadow-md">{getEmojiForWord(w)}</span>
+                  <span className="flex items-center gap-2 font-serif">
+                    {w} {isSelected && <span className="bg-rose-500 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm shadow-md border-2 border-white">✓</span>}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+
+          <div className="parchment p-8 rounded-3xl shadow-[0_15px_30px_rgba(0,0,0,0.2)] border-4 border-rose-300 text-center max-w-xl w-full mb-10 z-20">
+            <h3 className={`font-black text-rose-950 mb-4 border-b-2 border-rose-200 pb-3 font-serif ${getDynamicTextClass('lg', settings)}`}>Selected Descriptive Words ({selected.length})</h3>
+            <div className="flex flex-wrap justify-center gap-3 min-h-[3rem]">
+               {selected.length === 0 ? <span className="text-rose-800 italic">Your descriptive words will appear here!</span> : selected.map(w => <span key={w} className={`bg-rose-500 text-white px-5 py-2 rounded-full shadow-md font-bold border-2 border-rose-300 ${getDynamicTextClass('sm', settings)}`}>{w}</span>)}
+            </div>
+          </div>
+
+          {selected.length > 0 && (
+            <button onClick={complete} className={`bg-gradient-to-b from-amber-400 to-amber-600 text-amber-950 font-black py-4 px-12 rounded-full shadow-[0_6px_0_#92400e] active:translate-y-1 active:shadow-none transition-all animate-bounce-slight border-2 border-amber-200 z-20 ${getDynamicTextClass('lg', settings)}`}>
+              Collect Description Star & Return ⭐
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const ScreenRhyme = ({ state, updateState, vocab, settings, setShowSettings }) => {
+  const [selected, setSelected] = useState(state.toolkit.rhymes || []);
+  const toggle = (v) => setSelected(prev => prev.includes(v) ? prev.filter(x => x !== v) : [...prev, v]);
+
+  const complete = () => {
+    const newUnlocked = state.unlockedLocs.includes('STUDIO') ? state.unlockedLocs : [...state.unlockedLocs, 'STUDIO'];
+    const newCompleted = state.completedLocs.includes('RHYME_RIVER') ? state.completedLocs : [...state.completedLocs, 'RHYME_RIVER'];
+    updateState({ 
+      toolkit: { ...state.toolkit, rhymes: selected },
+      treasures: { ...state.treasures, crystal: true },
+      unlockedLocs: newUnlocked,
+      completedLocs: newCompleted,
+      screen: 'MAP'
+    });
+  };
+
+  const words = vocab?.rhymes || [{word1: 'Clap', word2: 'Tap'}, {word1: 'Play', word2: 'Day'}];
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-cyan-300 via-blue-200 to-cyan-400 flex flex-col relative">
+      <TopBar state={state} updateState={updateState} setShowSettings={setShowSettings} />
+      <div className="flex-1 flex flex-col md:flex-row relative items-stretch">
+        <ProgressTracker state={state} settings={settings} />
+        
+        <div className="flex-1 p-6 flex flex-col items-center animate-fade-in overflow-y-auto relative z-10">
+          <div className="absolute top-1/4 left-10 text-8xl opacity-40 drop-shadow-xl pointer-events-none animate-sway">🌊</div>
+          <div className="absolute bottom-20 right-10 text-7xl opacity-50 drop-shadow-xl pointer-events-none animate-pulse">🌈</div>
+          <div className="absolute top-10 right-20 text-6xl opacity-40 pointer-events-none animate-float">💎</div>
+          
+          <h2 className={`font-black text-cyan-950 mb-4 text-center font-serif drop-shadow-md ${getDynamicTextClass('xl', settings)}`}>🌊 Rhyme River</h2>
+          <p className={`text-cyan-950 mb-10 text-center max-w-2xl font-bold bg-white/70 px-8 py-4 rounded-full shadow-[0_10px_20px_rgba(0,0,0,0.1)] backdrop-blur-md border-4 border-cyan-300 ${getDynamicTextClass('lg', settings)}`}>
+            The rainbow bridge has collapsed! Select rhyming pairs to repair it.
+          </p>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl w-full mb-12 relative z-20">
+            {words.map(pair => {
+              const pairStr = `${pair.word1} & ${pair.word2}`;
+              const isSelected = selected.includes(pairStr);
+              return (
+                <button
+                  key={pairStr}
+                  onClick={() => toggle(pairStr)}
+                  className={`p-8 rounded-[2rem] border-4 font-bold transition-all flex items-center justify-center gap-6 ${isSelected ? 'bg-gradient-to-b from-cyan-100 to-cyan-300 border-cyan-500 text-cyan-950 shadow-[0_10px_20px_rgba(6,182,212,0.3)] scale-105 ring-4 ring-cyan-200' : 'bg-white/90 border-cyan-200 text-cyan-900 hover:border-cyan-400 hover:shadow-lg hover:-translate-y-2 backdrop-blur-sm'} ${getDynamicTextClass('lg', settings)}`}
+                >
+                  <span className="bg-white px-6 py-3 rounded-full shadow-inner border-2 border-cyan-100 font-serif">{pair.word1}</span> 
+                  <span className="text-cyan-600 text-3xl">~</span> 
+                  <span className="bg-white px-6 py-3 rounded-full shadow-inner border-2 border-cyan-100 font-serif">{pair.word2}</span>
+                  {isSelected && <span className="absolute -top-4 -right-4 bg-cyan-500 text-white rounded-full w-10 h-10 flex items-center justify-center border-4 border-white shadow-lg">✓</span>}
+                </button>
+              )
+            })}
+          </div>
+
+          <div className="parchment p-8 rounded-3xl shadow-[0_15px_30px_rgba(0,0,0,0.2)] border-4 border-cyan-400 text-center max-w-xl w-full mb-10 z-20">
+            <h3 className={`font-black text-cyan-950 mb-4 border-b-2 border-cyan-300 pb-3 font-serif ${getDynamicTextClass('lg', settings)}`}>Selected Rhyming Pairs ({selected.length})</h3>
+            <div className="flex flex-wrap justify-center gap-3 min-h-[3rem]">
+               {selected.length === 0 ? <span className="text-cyan-800 italic">Your rhyming pairs will appear here!</span> : selected.map(w => <span key={w} className={`bg-cyan-600 text-white px-5 py-2 rounded-full shadow-md font-bold border-2 border-cyan-400 ${getDynamicTextClass('sm', settings)}`}>{w}</span>)}
+            </div>
+          </div>
+
+          {selected.length > 0 && (
+            <button onClick={complete} className={`bg-gradient-to-b from-amber-400 to-amber-600 text-amber-950 font-black py-4 px-12 rounded-full shadow-[0_6px_0_#92400e] active:translate-y-1 active:shadow-none transition-all animate-bounce-slight border-2 border-amber-200 z-20 ${getDynamicTextClass('lg', settings)}`}>
+              Collect Rhyme Crystal & Return 🔮
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const ScreenStudio = ({ state, updateState, settings, setShowSettings }) => {
+  const [lines, setLines] = useState(state.poemData.lines || ['', '', '', '']);
+  const [title, setTitle] = useState(state.poemData.title || 'My Magical Poem');
+  const [guidedAnswers, setGuidedAnswers] = useState(state.poemData.guidedSelections || {});
+  
+  const handleSave = () => {
+    updateState({ poemData: { ...state.poemData, title, lines, guidedSelections: guidedAnswers } });
+  };
+
+  const complete = () => {
+    handleSave();
+    const newUnlocked = state.unlockedLocs.includes('FESTIVAL') ? state.unlockedLocs : [...state.unlockedLocs, 'FESTIVAL'];
+    const newCompleted = state.completedLocs.includes('STUDIO') ? state.completedLocs : [...state.completedLocs, 'STUDIO'];
+    updateState({
+      treasures: { ...state.treasures, quill: true },
+      unlockedLocs: newUnlocked,
+      completedLocs: newCompleted,
+      screen: 'FESTIVAL'
+    });
+  };
+
+  const handleGuidedSelect = (lineIdx, opt) => {
+    if (opt.error) {
+      alert(opt.error);
+      return;
+    }
+    const newAnswers = { ...guidedAnswers, [lineIdx]: opt.text };
+    setGuidedAnswers(newAnswers);
+    
+    const guidedData = GUIDED_POETRY_DATA[state.topicId || 'HANDS'];
+    const newLines = [...lines];
+    newLines[lineIdx] = guidedData[lineIdx].template.replace('{blank}', opt.text);
+    setLines(newLines);
+    updateState({ poemData: { ...state.poemData, title, lines: newLines, guidedSelections: newAnswers } });
+  };
+
+  const guidedData = GUIDED_POETRY_DATA[state.topicId || 'HANDS'];
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-amber-900 to-yellow-950 flex flex-col relative">
+      <TopBar state={state} updateState={updateState} setShowSettings={setShowSettings} />
+      <div className="flex-1 flex flex-col md:flex-row relative items-stretch">
+        <ProgressTracker state={state} settings={settings} />
+        
+        {/* Right Sidebar: Toolkit */}
+        <div className="w-full md:w-72 parchment border-r-4 border-amber-700 shadow-[10px_0_20px_rgba(0,0,0,0.3)] overflow-y-auto z-20 flex-shrink-0">
+           <div className="p-6">
+             <h3 className={`font-black text-amber-950 mb-6 border-b-2 border-[#D4AF37] pb-3 font-serif flex items-center gap-3 ${getDynamicTextClass('lg', settings)}`}><span className="text-3xl drop-shadow-md">🎒</span> Poetry Toolkit</h3>
+             <div className={`space-y-8 ${getDynamicTextClass('sm', settings)}`}>
+                <div>
+                  <h4 className="font-bold text-emerald-900 mb-3 uppercase tracking-wider flex items-center gap-2"><span>💎</span> Action Verbs</h4>
+                  <div className="flex flex-wrap gap-2">{state.toolkit.verbs.length ? state.toolkit.verbs.map(v=><span key={v} className="bg-emerald-100 text-emerald-950 px-4 py-2 rounded-full shadow-sm font-bold border border-emerald-300">{v}</span>) : <span className="text-amber-800/60 italic font-medium">None collected</span>}</div>
+                </div>
+                <div>
+                  <h4 className="font-bold text-rose-900 mb-3 uppercase tracking-wider flex items-center gap-2"><span>⭐</span> Descriptive Words</h4>
+                  <div className="flex flex-wrap gap-2">{state.toolkit.adjectives.length ? state.toolkit.adjectives.map(v=><span key={v} className="bg-rose-100 text-rose-950 px-4 py-2 rounded-full shadow-sm font-bold border border-rose-300">{v}</span>) : <span className="text-amber-800/60 italic font-medium">None collected</span>}</div>
+                </div>
+                <div>
+                  <h4 className="font-bold text-cyan-900 mb-3 uppercase tracking-wider flex items-center gap-2"><span>🔮</span> Rhyming Words</h4>
+                  <div className="flex flex-col gap-3">{state.toolkit.rhymes.length ? state.toolkit.rhymes.map(v=><span key={v} className="bg-cyan-100 text-cyan-950 px-4 py-3 rounded-2xl shadow-sm font-bold border border-cyan-300 text-center">{v.replace(' & ', ' ~ ')}</span>) : <span className="text-amber-800/60 italic font-medium">None collected</span>}</div>
+                </div>
+             </div>
+           </div>
+        </div>
+
+        <div className="flex-1 p-6 flex flex-col items-center animate-fade-in overflow-y-auto relative z-10">
+          <div className="absolute top-10 right-10 text-8xl opacity-20 drop-shadow-xl pointer-events-none animate-float">🪶</div>
+          <div className="absolute bottom-20 left-10 text-7xl opacity-20 drop-shadow-xl pointer-events-none animate-float" style={{animationDelay: '1s'}}>✨</div>
+
+          <h2 className={`font-black text-amber-300 mb-8 text-center font-serif drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] ${getDynamicTextClass('xl', settings)}`}>✍️ Poetry Creation Studio</h2>
+          
+          <div className="bg-white/10 backdrop-blur-md p-8 md:p-12 rounded-[3rem] shadow-[0_20px_50px_rgba(0,0,0,0.5)] border-4 border-amber-500/50 max-w-6xl w-full flex flex-col lg:flex-row gap-12 relative overflow-hidden">
+            
+            {/* Editor Side */}
+            <div className="flex-1 flex flex-col gap-8 z-10">
+              <div className="parchment p-6 rounded-[2rem] border-4 border-[#D4AF37] shadow-lg">
+                <label className={`font-bold text-amber-950 mb-3 block uppercase tracking-wider font-serif ${getDynamicTextClass('sm', settings)}`}>Poem Title</label>
+                <input 
+                  type="text" 
+                  value={title} 
+                  onChange={e => setTitle(e.target.value)} 
+                  onBlur={handleSave}
+                  className={`w-full bg-white/50 border-b-4 border-amber-300 rounded-xl p-4 font-bold text-amber-950 focus:border-amber-500 outline-none transition-colors font-serif ${getDynamicTextClass('lg', settings)}`}
+                />
+              </div>
+
+              {state.pathwayId === 'GUIDED' ? (
+                <div className="space-y-6">
+                  {guidedData.map((lineData, idx) => (
+                    <div key={idx} className="parchment p-6 rounded-[2rem] border-4 border-amber-300 shadow-lg">
+                      <p className={`font-serif text-amber-950 font-bold mb-5 ${getDynamicTextClass('lg', settings)}`}>{lineData.template.replace('{blank}', '______')}</p>
+                      <div className="flex flex-col sm:flex-row gap-4">
+                        {lineData.options.map((opt, i) => (
+                          <button 
+                            key={i}
+                            onClick={() => handleGuidedSelect(idx, opt)}
+                            className={`flex-1 py-4 px-6 rounded-2xl border-4 font-bold transition-all shadow-md ${guidedAnswers[idx] === opt.text ? 'bg-gradient-to-b from-emerald-400 to-emerald-600 border-emerald-700 text-white shadow-inner scale-105' : 'bg-white border-amber-200 text-emerald-950 hover:bg-amber-100 hover:border-[#D4AF37]'} ${getDynamicTextClass('base', settings)}`}
+                          >
+                            {opt.text}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {lines.map((line, idx) => (
+                    <div key={idx} className="parchment p-6 rounded-[2rem] border-4 border-[#D4AF37] shadow-lg flex flex-col group relative">
+                      <label className={`font-bold text-emerald-900 mb-3 uppercase tracking-wider flex items-center gap-3 font-serif ${getDynamicTextClass('sm', settings)}`}>
+                        <span className="bg-emerald-700 text-white w-8 h-8 flex items-center justify-center rounded-full text-sm shadow-md border-2 border-emerald-900">{idx + 1}</span>
+                        {state.pathwayId === 'INDEPENDENT' && idx === 0 && 'Describe an action.'}
+                        {state.pathwayId === 'INDEPENDENT' && idx === 1 && 'Describe another action.'}
+                        {state.pathwayId === 'INDEPENDENT' && idx === 2 && 'Include a descriptive word.'}
+                        {state.pathwayId === 'INDEPENDENT' && idx === 3 && 'Use a rhyming word or pair.'}
+                        {state.pathwayId === 'CREATIVE' && 'Write your line'}
+                      </label>
+                      <textarea 
+                        value={line} 
+                        onChange={(e) => {
+                          const newLines = [...lines];
+                          newLines[idx] = e.target.value;
+                          setLines(newLines);
+                        }}
+                        onBlur={handleSave}
+                        rows={2}
+                        className={`w-full bg-white/50 border-2 border-amber-200 rounded-xl p-4 font-serif text-amber-950 font-bold focus:border-amber-500 focus:ring-4 focus:ring-amber-200 outline-none resize-none transition-all shadow-inner ${getDynamicTextClass('lg', settings)}`}
+                        placeholder={`Write your line here...`}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Preview Side (Parchment Paper) */}
+            <div className="w-full lg:w-5/12 parchment p-12 rounded-[2rem] border-4 border-[#D4AF37] shadow-[inset_0_0_50px_rgba(212,175,55,0.2),_0_20px_40px_rgba(0,0,0,0.5)] flex flex-col relative min-h-[500px] z-10">
+              <div className="absolute top-6 right-6 text-5xl opacity-40 drop-shadow-md">📜</div>
+              <div className="absolute -left-3 top-10 bottom-10 w-6 border-l-4 border-dotted border-amber-700/30 opacity-70"></div>
+              
+              <h3 className={`font-black text-amber-950 mb-10 font-serif text-center underline decoration-amber-500 decoration-4 underline-offset-[12px] ${getDynamicTextClass('xl', settings)}`}>{title}</h3>
+              <div className={`font-serif text-amber-950 font-bold leading-[3.5rem] space-y-4 flex-1 ${getDynamicTextClass('lg', settings)}`}>
+                {lines.map((line, idx) => (
+                  <div key={idx} className="min-h-[3.5rem] border-b-2 border-amber-800/20 pb-2 break-words">
+                    {line || '\u00A0'}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+          </div>
+
+          <button onClick={complete} className={`mt-12 bg-gradient-to-b from-amber-400 to-amber-600 text-amber-950 font-black py-5 px-16 rounded-full shadow-[0_8px_0_#92400e] active:translate-y-2 active:shadow-none transition-all border-2 border-amber-200 z-20 ${getDynamicTextClass('lg', settings)}`}>
+            Finish Poem & Go to Festival 🌟
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const ScreenFestival = ({ state, updateState, INITIAL_STATE, setModal, settings, setShowSettings }) => {
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const activeAvatar = AVATARS.find(a => a.id === state.avatarId) || AVATARS[0];
+  
+  const handleNewAdventure = () => {
+    updateState(INITIAL_STATE);
+  };
+
+  const copyPoem = () => {
+    const text = `${state.poemData.title}\n\n${state.poemData.lines.join('\n')}`;
+    navigator.clipboard.writeText(text).then(() => {
+      setModal({ show: true, title: 'Success!', content: 'Your poem has been copied! You can now paste it somewhere else.' });
+    }).catch(() => {
+      setModal({ show: true, title: 'Oops!', content: 'Could not copy to clipboard. Please select and copy the text manually.' });
+    });
+  };
+
+  const downloadPoem = () => {
+    const text = `${state.poemData.title}\n\n${state.poemData.lines.join('\n')}`;
+    const blob = new Blob([text], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${state.poemData.title || 'My_Poem'}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    setModal({ show: true, title: 'Download Started', content: 'Check your downloads folder for your poem!' });
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-rose-200 via-purple-100 to-indigo-200 flex flex-col relative overflow-hidden">
+      <TopBar state={state} updateState={updateState} setShowSettings={setShowSettings} />
+      <div className="flex-1 flex flex-col md:flex-row relative items-stretch">
+        <ProgressTracker state={state} settings={settings} />
+        
+        <div className="flex-1 w-full flex flex-col items-center p-6 animate-fade-in overflow-y-auto relative z-10">
+          {/* Royal Festival Decor */}
+          <div className="absolute top-0 left-0 w-full h-full pointer-events-none z-0">
+             <div className="absolute top-10 left-[10%] text-7xl opacity-50 animate-float drop-shadow-lg">🎪</div>
+             <div className="absolute top-20 right-[15%] text-6xl opacity-60 animate-pulse drop-shadow-lg" style={{animationDelay: '1s'}}>✨</div>
+             <div className="absolute bottom-32 left-[20%] text-7xl opacity-50 animate-float drop-shadow-lg">🎈</div>
+             <div className="absolute bottom-20 right-[10%] text-8xl opacity-50 animate-sway drop-shadow-lg">🌸</div>
+             <div className="absolute top-[40%] right-[5%] text-6xl opacity-40 animate-float drop-shadow-lg">🎇</div>
+          </div>
+
+          <h2 className={`font-black text-indigo-950 mb-10 text-center drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)] mt-6 flex items-center justify-center gap-6 font-serif relative z-10 ${getDynamicTextClass('xl', settings)}`}>
+            <span className="text-6xl drop-shadow-xl">🎊</span> Young Poets' Festival <span className="text-6xl drop-shadow-xl">🎊</span>
+          </h2>
+          
+          {/* Main Poetry Exhibition Card */}
+          <div className="parchment p-10 md:p-16 rounded-[3rem] shadow-[0_20px_50px_rgba(0,0,0,0.3)] max-w-3xl w-full border-[12px] border-[#D4AF37] mb-12 relative overflow-hidden z-10">
+            <div className="text-center mb-10 relative z-10">
+              <span className="text-7xl mb-4 inline-block drop-shadow-2xl bg-white rounded-full p-6 border-8 border-indigo-200">{activeAvatar.icon}</span>
+              <h3 className={`font-bold text-indigo-900 uppercase tracking-widest mt-6 bg-indigo-100 px-6 py-2 rounded-full inline-block border-2 border-indigo-300 ${getDynamicTextClass('sm', settings)}`}>{activeAvatar.name}'s Masterpiece</h3>
+            </div>
+
+            <h3 className={`font-black text-center text-amber-950 mb-12 font-serif drop-shadow-sm relative z-10 underline decoration-indigo-300 decoration-4 underline-offset-[12px] ${getDynamicTextClass('xl', settings)}`}>
+              {state.poemData.title}
+            </h3>
+            
+            <div className={`font-serif font-bold text-amber-950 leading-[3.5rem] text-center space-y-6 mb-16 px-4 md:px-12 relative z-10 ${getDynamicTextClass('lg', settings)}`}>
+              {state.poemData.lines.map((line, idx) => (
+                <p key={idx} className="min-h-[2.5rem] border-b-2 border-amber-800/20 pb-3">{line || '\u00A0'}</p>
+              ))}
+            </div>
+
+            <div className="flex flex-col sm:flex-row justify-center gap-6 border-t-4 border-amber-300/50 pt-10 relative z-10">
+              <button onClick={copyPoem} className={`bg-gradient-to-b from-indigo-100 to-indigo-200 hover:from-indigo-200 hover:to-indigo-300 text-indigo-950 font-bold py-4 px-10 rounded-full transition-all shadow-[0_4px_0_#4f46e5] active:translate-y-1 active:shadow-none flex items-center justify-center gap-3 border-2 border-indigo-400 ${getDynamicTextClass('base', settings)}`}>
+                <span className="text-2xl drop-shadow-sm">📋</span> COPY POEM
+              </button>
+              <button onClick={downloadPoem} className={`bg-gradient-to-b from-indigo-100 to-indigo-200 hover:from-indigo-200 hover:to-indigo-300 text-indigo-950 font-bold py-4 px-10 rounded-full transition-all shadow-[0_4px_0_#4f46e5] active:translate-y-1 active:shadow-none flex items-center justify-center gap-3 border-2 border-indigo-400 ${getDynamicTextClass('base', settings)}`}>
+                <span className="text-2xl drop-shadow-sm">⬇️</span> DOWNLOAD
+              </button>
+            </div>
+          </div>
+
+          {/* Treasures Showcase */}
+          <div className="bg-gradient-to-b from-[#D4AF37] to-amber-600 p-8 rounded-[3rem] shadow-[0_20px_40px_rgba(0,0,0,0.4)] border-4 border-amber-200 mb-14 max-w-3xl w-full text-center relative z-10">
+            <h3 className={`font-black text-white mb-4 font-serif drop-shadow-md ${getDynamicTextClass('lg', settings)}`}>🏆 POETRYLAND CHAMPION 🏆</h3>
+            <p className={`text-amber-100 mb-8 font-medium ${getDynamicTextClass('base', settings)}`}>Congratulations, Young Poet! You travelled across Poetryland, recovered the missing words, and restored the magic of poetry!</p>
+            
+            <div className="flex justify-center gap-8 bg-black/20 p-8 rounded-[2rem] shadow-inner border border-white/20 backdrop-blur-sm">
+              <div className={`flex flex-col items-center gap-2 ${state.treasures.gem ? 'hover:scale-110 transition-transform cursor-default' : 'grayscale opacity-30'}`} title="Action Verb Gem">
+                <span className="text-6xl drop-shadow-xl">💎</span>
+              </div>
+              <div className={`flex flex-col items-center gap-2 ${state.treasures.star ? 'hover:scale-110 transition-transform cursor-default' : 'grayscale opacity-30'}`} title="Description Star">
+                <span className="text-6xl drop-shadow-xl">⭐</span>
+              </div>
+              <div className={`flex flex-col items-center gap-2 ${state.treasures.crystal ? 'hover:scale-110 transition-transform cursor-default' : 'grayscale opacity-30'}`} title="Rhyme Crystal">
+                <span className="text-6xl drop-shadow-xl">🔮</span>
+              </div>
+              <div className={`flex flex-col items-center gap-2 ${state.treasures.quill ? 'hover:scale-110 transition-transform cursor-default' : 'grayscale opacity-30'}`} title="Golden Quill">
+                <span className="text-6xl drop-shadow-xl">🪶</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Final Navigation */}
+          <div className="flex flex-col sm:flex-row flex-wrap justify-center gap-8 mb-16 w-full max-w-3xl relative z-10">
+            <button onClick={() => updateState({ screen: 'MAP' })} className={`flex-1 bg-gradient-to-b from-white to-gray-200 text-indigo-950 font-bold py-5 px-10 rounded-full shadow-[0_6px_0_#9ca3af] active:translate-y-1 active:shadow-none border-2 border-gray-400 transition-all ${getDynamicTextClass('lg', settings)}`}>
+              Return to Map
+            </button>
+            <button onClick={() => setShowResetConfirm(true)} className={`flex-1 bg-gradient-to-b from-rose-500 to-rose-700 text-white font-bold py-5 px-10 rounded-full shadow-[0_6px_0_#9f1239] active:translate-y-1 active:shadow-none border-2 border-rose-400 transition-all ${getDynamicTextClass('lg', settings)}`}>
+              Start a New Adventure
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Custom Reset Modal */}
+      {showResetConfirm && (
+        <div className="fixed inset-0 bg-indigo-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="parchment rounded-[3rem] max-w-lg w-full p-12 text-center shadow-[0_20px_50px_rgba(0,0,0,0.5)] transform border-8 border-[#D4AF37] relative">
+             <div className="absolute -top-12 left-1/2 transform -translate-x-1/2 text-8xl drop-shadow-2xl">⚠️</div>
+             <h3 className={`font-black text-rose-900 mb-6 font-serif mt-8 ${getDynamicTextClass('xl', settings)}`}>Start New Adventure?</h3>
+             <p className={`text-amber-950 font-medium mb-10 ${getDynamicTextClass('base', settings)}`}>
+               Are you sure you want to start a new adventure?<br/><br/>
+               All your current progress, collected treasures, selected vocabulary and completed poem will be cleared.
+             </p>
+             <div className="flex flex-col gap-5">
+               <button onClick={handleNewAdventure} className={`bg-gradient-to-b from-rose-500 to-rose-700 text-white font-bold py-4 px-6 rounded-full w-full shadow-[0_4px_0_#9f1239] active:translate-y-1 active:shadow-none transition-all border-2 border-rose-400 ${getDynamicTextClass('lg', settings)}`}>
+                 YES, RESET ADVENTURE
+               </button>
+               <button onClick={() => setShowResetConfirm(false)} className={`bg-gradient-to-b from-gray-200 to-gray-300 text-gray-900 font-bold py-4 px-6 rounded-full w-full shadow-[0_4px_0_#9ca3af] active:translate-y-1 active:shadow-none transition-all border-2 border-gray-400 ${getDynamicTextClass('base', settings)}`}>
+                 CANCEL
+               </button>
+             </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default function PoetryPathGame() {
+  const [state, setState] = useState(INITIAL_STATE);
+  const [modal, setModal] = useState({ show: false, title: '', content: '' });
+  const [showSettings, setShowSettings] = useState(false);
+  
+  // Settings State & LocalStorage
+  const [settings, setSettings] = useState(() => {
+    const saved = localStorage.getItem('poetryPathSettings');
+    return saved ? JSON.parse(saved) : DEFAULT_SETTINGS;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('poetryPathSettings', JSON.stringify(settings));
+  }, [settings]);
+
+  // Audio Reference & Sync
+  const audioRef = useRef(null);
+  
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.volume = settings.volume;
+      if (settings.musicOn) {
+        // Play method returns a promise which might be rejected by browser auto-play policies
+        audioRef.current.play().catch(err => {
+           console.log("Audio playback prevented by browser policy:", err);
+        });
+      } else {
+        audioRef.current.pause();
+      }
+    }
+  }, [settings.musicOn, settings.volume]);
+
+
+  const updateState = (updates) => setState(prev => ({ ...prev, ...updates }));
+  const vocab = VOCABULARY[state.topicId];
+
+  const renderScreen = () => {
+    switch (state.screen) {
+      case 'START': return <ScreenStart updateState={updateState} settings={settings} setShowSettings={setShowSettings} />;
+      case 'GUIDEBOOK': return <ScreenGuidebook state={state} updateState={updateState} settings={settings} setShowSettings={setShowSettings} />;
+      case 'AVATAR_SELECT': return <ScreenAvatar state={state} updateState={updateState} settings={settings} setShowSettings={setShowSettings} />;
+      case 'PATHWAY_SELECT': return <ScreenPathway state={state} updateState={updateState} settings={settings} setShowSettings={setShowSettings} />;
+      case 'TOPIC_SELECT': return <ScreenTopic state={state} updateState={updateState} settings={settings} setShowSettings={setShowSettings} />;
+      case 'HQ': return <ScreenHQ state={state} updateState={updateState} settings={settings} setShowSettings={setShowSettings} />;
+      case 'MAP': return <ScreenMap state={state} updateState={updateState} setModal={setModal} settings={settings} setShowSettings={setShowSettings} />;
+      case 'VERB_FOREST': return <ScreenVerb state={state} updateState={updateState} vocab={vocab} settings={settings} setShowSettings={setShowSettings} />;
+      case 'ADJ_GARDEN': return <ScreenAdjective state={state} updateState={updateState} vocab={vocab} settings={settings} setShowSettings={setShowSettings} />;
+      case 'RHYME_RIVER': return <ScreenRhyme state={state} updateState={updateState} vocab={vocab} settings={settings} setShowSettings={setShowSettings} />;
+      case 'STUDIO': return <ScreenStudio state={state} updateState={updateState} settings={settings} setShowSettings={setShowSettings} />;
+      case 'FESTIVAL': return <ScreenFestival state={state} updateState={updateState} INITIAL_STATE={INITIAL_STATE} setModal={setModal} settings={settings} setShowSettings={setShowSettings} />;
+      default: return <ScreenStart updateState={updateState} settings={settings} setShowSettings={setShowSettings} />;
+    }
+  };
+
+  const getRootFontClass = () => {
+    if (settings.fontStyle === 'serif') return 'font-serif';
+    if (settings.fontStyle === 'sans') return 'font-sans';
+    return ''; 
+  };
+
+  const getRootInlineStyle = () => {
+    if (settings.fontStyle === 'rounded') return { fontFamily: '"Nunito", "Quicksand", "Comic Sans MS", sans-serif' };
+    return {};
+  };
+
+  return (
+    <div className={`text-gray-900 antialiased overflow-x-hidden min-h-screen ${getRootFontClass()}`} style={getRootInlineStyle()}>
+      
+      {/* Global Theme & Animation Styles injected directly for Tailwind arbitrary capabilities */}
+      <style>{`
+        @keyframes float {
+          0%, 100% { transform: translateY(0px); }
+          50% { transform: translateY(-15px); }
+        }
+        .animate-float { animation: float 4s ease-in-out infinite; }
+        
+        @keyframes sway {
+          0%, 100% { transform: rotate(-4deg); }
+          50% { transform: rotate(4deg); }
+        }
+        .animate-sway { animation: sway 5s ease-in-out infinite; }
+        
+        .parchment {
+          background-color: #FDFBF7;
+          background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.05' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100' height='100' filter='url(%23noise)' opacity='0.05'/%3E%3C/svg%3E");
+        }
+      `}</style>
+      
+      {/* Global Background Audio Source */}
+      <audio ref={audioRef} loop src="https://assets.mixkit.co/music/preview/mixkit-magical-fairytale-ambient-712.mp3" />
+      
+      {renderScreen()}
+      
+      {/* Settings Panel */}
+      <SettingsModal show={showSettings} onClose={() => setShowSettings(false)} settings={settings} setSettings={setSettings} />
+
+      {/* Global Feedback Modal */}
+      {modal.show && (
+        <div className="fixed inset-0 bg-emerald-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="parchment rounded-[2rem] max-w-sm w-full p-10 text-center shadow-2xl transform animate-bounce-slight border-4 border-[#D4AF37] relative">
+             <button onClick={() => setModal({ show: false, title: '', content: '' })} className="absolute top-4 right-4 text-amber-800 hover:text-amber-950 text-2xl font-bold bg-amber-100 rounded-full w-10 h-10 flex items-center justify-center border-2 border-amber-300">✖</button>
+             <h3 className={`font-black text-emerald-950 mb-4 font-serif ${getDynamicTextClass('lg', settings)}`}>{modal.title}</h3>
+             <p className={`text-amber-950 font-medium ${getDynamicTextClass('base', settings)}`}>{modal.content}</p>
+             <button onClick={() => setModal({ show: false, title: '', content: '' })} className={`mt-8 bg-gradient-to-b from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-amber-950 font-black py-4 px-8 rounded-full w-full shadow-[0_4px_0_#92400e] active:translate-y-1 active:shadow-none transition-all border-2 border-amber-200 ${getDynamicTextClass('base', settings)}`}>
+               Got it! ✨
+             </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
